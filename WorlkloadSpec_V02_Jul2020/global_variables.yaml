@@ -1,0 +1,40 @@
+---
+
+deployment-spec:
+  base: /home/azureSample/repo/
+  requirementsfile: requirements.txt
+  appfile: server.py
+  applicationcodeuri: https://github.com/bhatiaAnanya/sample-project-x-vm.git
+  dnslabel: myprojectxvm
+  port: 8000
+
+vm-spec:
+  min-num-vms: 1
+  size: Standard_F1s
+  disks:
+    - name: Hard disk 1
+      sku: Standard_LRS
+      lun: 0
+      size-in-gb: 128
+
+container-spec:
+  min-num-containers: 1
+  num-CPUs: 1 
+  ram-in-gb: 2
+  disk-in-gb: 128
+
+db-server-spec:
+  server-config:
+    server-name: mydbserver
+    num-vCores: 4
+    storage-in-gb: 100
+    storage-auto-scale: true
+    redundancy: geo #local is another option
+
+  admin-account:
+    username: anabha
+    password: P@$$w0rd
+
+  connections:
+    allowed-ips-start: '0.0.0.0'
+    allowed-ips-end: '255.255.255.255'

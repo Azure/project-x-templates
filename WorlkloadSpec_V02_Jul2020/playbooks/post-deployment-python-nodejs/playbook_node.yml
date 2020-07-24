@@ -1,0 +1,58 @@
+---
+- hosts: all
+  vars:
+    base: /home/azureSample/repo/
+    requirementsfile: requirements.txt
+    appfile: app.js
+    applicationcodeuri: https://github.com/bhatiaAnanya/sample-project-x-nodejs.git
+    dnslabel: myprojectxvm
+    port: 80
+
+  tasks:
+    - name: Fetch latest version of node
+      become: true
+      shell: "curl -sL https://deb.nodesource.com/setup_12.x | sudo -E bash -"
+
+    - name: Install nodejs
+      become: true
+      apt:
+        name: nodejs
+
+    - name: Install npm
+      become: true
+      shell: "curl -L https://npmjs.org/install.sh | sudo sh"
+
+    - git: repo="{{ applicationcodeuri }}"
+           dest="{{ base }}"
+           accept_hostkey=yes
+
+    - name: Install tmux
+      become: true
+      apt:
+        name: tmux
+
+    - name: Install ngrok using snap
+      become: true
+      snap:
+        name: ngrok
+
+    - name: Install dependencies using npm based on package.json
+      become: true
+      npm:
+        path: "{{ base }}"
+    
+    - name: Start ngrok
+      become: true
+      command: "tmux new -d -s session-ngrok ngrok http {{ port }}"
+
+    - name: Start the site
+      command: "tmux new -d -s session-server node {{ base }}{{ appfile }}"
+    
+    - name: Capturing tunnel name
+      command: "curl localhost:4040/api/tunnels"
+      register: url_generated
+    
+    - local_action: copy content={{ url_generated }} dest=/Users/ananyabhatia/Desktop/Microsoft/VM/out.txt
+
+    - debug:
+        msg: "{{ url_generated }} is the generated url"

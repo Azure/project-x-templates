@@ -1,0 +1,53 @@
+---
+- hosts: all
+  vars:
+    base: /home/azureSample/repo/
+    requirementsfile: requirements.txt
+    appfile: server.py
+    applicationcodeuri: https://github.com/bhatiaAnanya/sample-project-x-vm.git
+    dnslabel: myprojectxvm
+    port: 8000
+
+  tasks:
+    - name: Install pip
+      become: true
+      apt:
+        name: python-pip
+
+    - git: repo="{{ applicationcodeuri }}"
+           dest="{{ base }}"
+           accept_hostkey=yes
+
+    - name: Install requirements on all hosts
+      pip:
+        requirements: "{{ base }}{{ requirementsfile }}"
+
+    - name: Install tmux
+      become: true
+      apt:
+        name: tmux
+
+    - name: Install ngrok using snap
+      become: true
+      snap:
+        name: ngrok
+    
+    - name: Start ngrok
+      become: true
+      command: "tmux new -d -s session-ngrok ngrok http {{ port }}"
+
+    - name: Capturing tunnel name
+      command: "curl localhost:4040/api/tunnels"
+      register: url_generated
+
+    - name: Start the site
+      command: "tmux new -d -s session-server python {{ base }}{{ appfile }}"
+      register: op
+
+    - debug:
+        msg: "{{ op }}"
+
+    - local_action: copy content={{ url_generated }} dest=/Users/ananyabhatia/Desktop/Microsoft/VM/out.txt
+
+    - debug:
+        msg: "{{ url_generated }} is the generated url"

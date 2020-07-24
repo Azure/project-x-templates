@@ -1,0 +1,42 @@
+spec-schema-version: project-x
+
+resource-group:
+  name: my-rg
+  location: westus
+
+workload-stack:
+  - name: Python
+    auto-scale: false
+    deploy-on: container
+    deployment-options:
+      - name: vm
+        supports-auto-scale: false
+        arm-template-path: arm-templates/vm-deployment/vm-arm-template.json
+        playbook-path: playbooks/post-deployment-playbook/post-deployment-playbook.yaml
+      
+      - name: vmss
+        supports-auto-scale: true
+        arm-template-path: arm-templates/vmss-deployment/vmss-arm-template.json
+
+      - name: container
+        supports-auto-scale: true
+        dockerfile-path: docker-files/build-image-dockerfile
+        arm-template-path: arm-templates/container-deployment/container-deployment.json
+
+  - name: DbServer
+    auto-scale: false
+    deploy-on: container
+    deployment-options:
+      - name: vm
+        supports-auto-scale: false
+        arm-template-path: arm-templates/db-server/db-server.json
+        playbook-path: playbooks/mongdb-installation-playbook/moongdb-installation-playbook.yaml
+      
+      - name: container
+        supports-auto-scale: false
+        dockerfile-path: docker-files/db-server-dockerfile
+        arm-template-path: arm-templates/db-deployment/db-deployment.json
+      
+      - name: azuremysql
+        supports-auto-scale: false
+        arm-template-path: arm-templates/azuremysql-deployment/azuremysql-deployment.json

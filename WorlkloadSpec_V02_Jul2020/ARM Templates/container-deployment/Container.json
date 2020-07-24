@@ -1,0 +1,66 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "containerGroups_container_name": {
+            "type": "String"
+        }
+    },
+    "variables": {
+    	"containerName": "myContainerName",
+    	"containerImage": "ananya17020/sample-project-python",
+    	"websitesPort": 80,
+    	"memoryInGB": 2,
+    	"cpu": 1,
+    	"dnsNameLabel": "dns-label-placeholder"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.ContainerInstance/containerGroups",
+            "apiVersion": "2018-10-01",
+            "name": "[parameters('containerGroups_container_name')]",
+            "location": "westus",
+            "properties": {
+                "containers": [
+                    {
+                        "name": "[parameters('containerGroups_container_name')]",
+                        "properties": {
+                            "image": "[variables('containerImage')]",
+                            "ports": [
+                                {
+                                    "protocol": "TCP",
+                                    "port": 80
+                                }
+                            ],
+                            "environmentVariables": [
+	                            {
+                                    "name": "WEBSITES_PORT",
+                                    "value": "[variables('websitesPort')]"
+	                            }
+                            ],
+                            "resources": {
+                                "requests": {
+                                    "memoryInGB": "[variables('memoryInGB')]",
+                                    "cpu": "[variables('cpu')]"
+                                }
+                            }
+                        }
+                    }
+                ],
+                "restartPolicy": "OnFailure",
+                "ipAddress": {
+                    "ports": [
+                        {
+                            "protocol": "TCP",
+                            "port": 80
+                        }
+                    ],
+                    "type": "Public",
+                    "dnsNameLabel": "[variables('dnsNameLabel')]"
+                },
+                "osType": "Linux"
+            }
+        }
+    ]
+}
+

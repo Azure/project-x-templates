@@ -1,0 +1,220 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json",
+  "contentVersion": "1.0.0.1",
+  "parameters": {
+    "virtualMachineSize_parameter_placeholder": {
+      "type": "string"
+    }
+  },
+  "variables": {
+    "virtualMachineName": "AnanyaVM",
+    "virtualMachineSize": "[parameters('virtualMachineSize_parameter_placeholder')]",
+    "vNetName": "defaultVnet",
+    "SubnetName": "defaultSubnet",
+    "NsgName": "defaultNSG",
+    "vNetPrefix": "10.0.0.0/16",
+    "SubnetPrefix": "10.0.0.0/16",
+    "networkInterfaceName": "[concat(variables('virtualMachineName'),'nic')]",
+    "publicIpAddressName": "[concat(variables('virtualMachineName'),'publicip')]",
+    "diagnosticsStorageAccountName": "[concat('vm','diagsa', substring(uniqueString(resourceGroup().id),0,6))]",
+    "diagnosticsStorageAccountId": "[concat('Microsoft.Storage/storageAccounts/',variables('diagnosticsStorageAccountName'))]",
+    "diagnosticsStorageAccountType": "Standard_LRS",
+    "diagnosticsStorageAccountKind": "Storage",
+    "nsgId": "[resourceId(resourceGroup().name, 'Microsoft.Network/networkSecurityGroups', variables('NsgName'))]",
+    "vnetId": "[resourceId(resourceGroup().name,'Microsoft.Network/virtualNetworks', variables('vNetName'))]",
+    "subnetRef": "[concat(variables('vnetId'), '/subnets/', variables('SubnetName'))]",
+    "adminPublicKey": "<public-key>",
+    "adminUsername": "wbuser",
+    "osDiskType": "Premium_LRS",
+    "osPublisherName": "RedHat",
+    "osOfferName": "RHEL",
+    "osSkuName": "7.8",
+    "dataDisks": [
+      {
+        "caching": "None",
+        "createOption": "attach",
+        "diskSizeGB": null,
+        "id": null,
+        "name": "Hard disk 1",
+        "storageAccountType": null,
+        "writeAcceleratorEnabled": false,
+        "lun": 10
+      },
+      {
+        "caching": "None",
+        "createOption": "attach",
+        "diskSizeGB": null,
+        "id": null,
+        "name": "Hard disk 2",
+        "storageAccountType": null,
+        "writeAcceleratorEnabled": false,
+        "lun": 20
+      }
+    ],
+    "dataDiskResources": [
+      {
+        "name": "Hard disk 1",
+        "properties": {
+          "creationData": {
+            "createOption": "empty"
+          },
+          "diskSizeGB": 128
+        },
+        "sku": "Standard_LRS"
+      },
+      {
+        "name": "Hard disk 2",
+        "properties": {
+          "creationData": {
+            "createOption": "empty"
+          },
+          "diskSizeGB": 128
+        },
+        "sku": "Premium_LRS"
+      }
+    ]
+  },
+  "resources": [
+    {
+      "name": "[variables('publicIpAddressName')]",
+      "type": "Microsoft.Network/publicIPAddresses",
+      "apiVersion": "2019-04-01",
+      "location": "[resourceGroup().location]",
+      "properties": {
+        "publicIpAllocationMethod": "Dynamic"
+      },
+      "sku": {
+        "name": "Basic"
+      }
+    },
+    {
+      "name": "[variables('networkInterfaceName')]",
+      "type": "Microsoft.Network/networkInterfaces",
+      "apiVersion": "2019-07-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "[concat('Microsoft.Network/publicIpAddresses/', variables('publicIpAddressName'))]"
+      ],
+      "properties": {
+        "ipConfigurations": [
+          {
+            "name": "ipconfig1",
+            "properties": {
+              "subnet": {
+                "id": "[variables('subnetRef')]"
+              },
+              "privateIPAllocationMethod": "Dynamic",
+              "publicIpAddress": {
+                "id": "[resourceId(resourceGroup().name, 'Microsoft.Network/publicIpAddresses', variables('publicIpAddressName'))]"
+              }
+            }
+          }
+        ],
+        "networkSecurityGroup": {
+          "id": "[variables('nsgId')]"
+        }
+      }
+    },
+    {
+      "name": "[variables('diagnosticsStorageAccountName')]",
+      "type": "Microsoft.Storage/storageAccounts",
+      "apiVersion": "2019-06-01",
+      "location": "[resourceGroup().location]",
+      "properties": {},
+      "kind": "[variables('diagnosticsStorageAccountKind')]",
+      "sku": {
+        "name": "[variables('diagnosticsStorageAccountType')]"
+      }
+    },
+    {
+      "name": "[variables('dataDiskResources')[copyIndex()].name]",
+      "type": "Microsoft.Compute/disks",
+      "apiVersion": "2019-07-01",
+      "location": "[resourceGroup().location]",
+      "properties": "[variables('dataDiskResources')[copyIndex()].properties]",
+      "sku": {
+        "name": "[variables('dataDiskResources')[copyIndex()].sku]"
+      },
+      "copy": {
+        "name": "managedDiskResources",
+        "count": "[length(variables('dataDiskResources'))]"
+      }
+    },
+    {
+      "name": "[variables('virtualMachineName')]",
+      "type": "Microsoft.Compute/virtualMachines",
+      "apiVersion": "2019-07-01",
+      "location": "[resourceGroup().location]",
+      "dependsOn": [
+        "managedDiskResources",
+        "[concat('Microsoft.Network/networkInterfaces/', variables('networkInterfaceName'))]",
+        "[concat('Microsoft.Storage/storageAccounts/', variables('diagnosticsStorageAccountName'))]"
+      ],
+      "properties": {
+        "hardwareProfile": {
+          "vmSize": "[variables('virtualMachineSize')]"
+        },
+        "storageProfile": {
+          "osDisk": {
+            "createOption": "FromImage",
+            "managedDisk": {
+              "storageAccountType": "[variables('osDiskType')]"
+            }
+          },
+          "imageReference": {
+            "publisher": "[variables('osPublisherName')]",
+            "offer": "[variables('osOfferName')]",
+            "sku": "[variables('osSkuName')]",
+            "version": "latest"
+          },
+          "copy": [
+            {
+              "name": "dataDisks",
+              "count": "[length(variables('dataDisks'))]",
+              "input": {
+                "lun": "[variables('dataDisks')[copyIndex('dataDisks')].lun]",
+                "createOption": "[variables('dataDisks')[copyIndex('dataDisks')].createOption]",
+                "caching": "[variables('dataDisks')[copyIndex('dataDisks')].caching]",
+                "writeAcceleratorEnabled": "[variables('dataDisks')[copyIndex('dataDisks')].writeAcceleratorEnabled]",
+                "diskSizeGB": "[variables('dataDisks')[copyIndex('dataDisks')].diskSizeGB]",
+                "managedDisk": {
+                  "id": "[coalesce(variables('dataDisks')[copyIndex('dataDisks')].id, if(equals(variables('dataDisks')[copyIndex('dataDisks')].name, json('null')), json('null'), resourceId('Microsoft.Compute/disks', variables('dataDisks')[copyIndex('dataDisks')].name)))]",
+                  "storageAccountType": "[variables('dataDisks')[copyIndex('dataDisks')].storageAccountType]"
+                }
+              }
+            }
+          ]
+        },
+        "networkProfile": {
+          "networkInterfaces": [
+            {
+              "id": "[resourceId('Microsoft.Network/networkInterfaces', variables('networkInterfaceName'))]"
+            }
+          ]
+        },
+        "osProfile": {
+          "computerName": "[variables('virtualMachineName')]",
+          "adminUsername": "[variables('adminUsername')]",
+          "linuxConfiguration": {
+            "disablePasswordAuthentication": true,
+            "ssh": {
+              "publicKeys": [
+                {
+                  "path": "[concat('/home/', variables('adminUsername'), '/.ssh/authorized_keys')]",
+                  "keyData": "[variables('adminPublicKey')]"
+                }
+              ]
+            }
+          }
+        },
+        "diagnosticsProfile": {
+          "bootDiagnostics": {
+            "enabled": true,
+            "storageUri": "[concat('https://', variables('diagnosticsStorageAccountName'), '.blob.core.windows.net/')]"
+          }
+        }
+      }
+    }
+  ],
+  "outputs": {}
+}

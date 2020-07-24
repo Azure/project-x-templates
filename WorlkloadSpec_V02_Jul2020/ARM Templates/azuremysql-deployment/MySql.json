@@ -1,0 +1,124 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "variables": {
+    	"serverName": "anabha-test-server",
+        "administratorLogin": "anabha",
+        "administratorLoginPassword": "P@$$w0rd",
+        "skuCapacity": 2,
+        "skuName": "GP_Gen5_2",
+        "SkuSizeMB": 10240,
+        "SkuTier": "GeneralPurpose",
+        "skuFamily": "Gen5",
+        "mysqlVersion": "5.7",
+        "location": "[resourceGroup().location]",
+        "backupRetentionDays": 7,
+        "geoRedundantBackup": "Enabled",
+        "virtualNetworkName": "azure_mysql_vnet",
+        "subnetName": "azure_mysql_subnet",
+        "virtualNetworkRuleName": "AllowSubnet",
+        "vnetAddressPrefix": "10.0.0.0/16",
+        "subnetPrefix": "10.0.0.0/16",
+        "firewallrules": {
+            "batch": {
+                "rules": [
+                    {
+                        "Name": "rule1",
+                        "StartIpAddress": "0.0.0.0",
+                        "EndIpAddress": "255.255.255.255"
+                    },
+                    {
+                        "Name": "rule2",
+                        "StartIpAddress": "0.0.0.0",
+                        "EndIpAddress": "255.255.255.255"
+                    }
+                ]
+            }
+        }
+    },
+    "resources": [
+        {
+            "apiVersion": "2018-06-01",
+            "type": "Microsoft.Network/virtualNetworks",
+            "name": "[variables('virtualNetworkName')]",
+            "location": "[variables('location')]",
+            "properties": {
+                "addressSpace": {
+                    "addressPrefixes": [
+                        "[variables('vnetAddressPrefix')]"
+                    ]
+                }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2018-06-01",
+                    "type": "subnets",
+                    "location": "[variables('location')]",
+                    "name": "[variables('subnetName')]",
+                    "dependsOn": [
+                        "[variables('virtualNetworkName')]"
+                    ],
+                    "properties": {
+                        "addressPrefix": "[variables('subnetPrefix')]"
+                    }
+                }
+            ]
+        },
+        {
+            "apiVersion": "2017-12-01",
+            "type": "Microsoft.DBforMySQL/servers",
+            "location": "[variables('location')]",
+            "name": "[variables('serverName')]",
+            "sku": {
+                "name": "[variables('skuName')]",
+                "tier": "[variables('skuTier')]",
+                "capacity": "[variables('skuCapacity')]",
+                "size": "[variables('skuSizeMB')]",
+                "family": "[variables('skuFamily')]"
+            },
+            "properties": {
+                "version": "[variables('mysqlVersion')]",
+                "administratorLogin": "[variables('administratorLogin')]",
+                "administratorLoginPassword": "[variables('administratorLoginPassword')]",
+                "storageProfile": {
+                    "storageMB": "[variables('skuSizeMB')]",
+                    "backupRetentionDays": "[variables('backupRetentionDays')]",
+                    "geoRedundantBackup": "[variables('geoRedundantBackup')]"
+                }
+            },
+            "resources": [
+                {
+                    "name": "[variables('virtualNetworkRuleName')]",
+                    "type": "virtualNetworkRules",
+                    "apiVersion": "2017-12-01",
+                    "properties": {
+                        "virtualNetworkSubnetId": "[resourceId('Microsoft.Network/virtualNetworks/subnets', variables('virtualNetworkName'), variables('subnetName'))]",
+                        "ignoreMissingVnetServiceEndpoint": true
+                    },
+                    "dependsOn": [
+                        "[concat('Microsoft.DBforMySQL/servers/', variables('serverName'))]"
+                    ]
+                }
+            ]
+        },
+        {
+            "name": "[concat(variables('serverName'),'/',variables('firewallrules').batch.rules[copyIndex()].Name)]",
+            "type": "Microsoft.DBforMySQL/servers/firewallRules",
+            "apiVersion": "2017-12-01",
+            "location": "[variables('location')]",
+            "dependsOn": [
+                "[concat('Microsoft.DBforMySQL/servers/', variables('serverName'))]"
+            ],
+            "copy": {
+                "name": "firewallRulesCopy",
+                "mode": "Serial",
+                "batchSize": 1,
+                "count": "[length(variables('firewallrules').batch.rules)]"
+            },
+            "properties": {
+                "StartIpAddress": "[variables('firewallrules').batch.rules[copyIndex()].StartIpAddress]",
+                "EndIpAddress": "[variables('firewallrules').batch.rules[copyIndex()].EndIpAddress]"
+            }
+        }
+    ]
+}

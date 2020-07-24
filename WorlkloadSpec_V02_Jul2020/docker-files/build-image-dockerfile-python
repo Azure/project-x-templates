@@ -1,0 +1,7 @@
+FROM python:alpine3.7
+COPY . /app
+WORKDIR /app
+EXPOSE [variables('port')]
+RUN pip install -r [variables('requirementsfile')]
+ENTRYPOINT [ "python" ]
+CMD [ "[variables('appfile')]" ]
